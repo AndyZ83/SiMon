@@ -17,8 +17,8 @@ PASSWORD="networkmonitor123"
 NET_BRIDGE="vmbr0"
 
 # GitHub Repository Configuration
-GITHUB_REPO="https://github.com/YOUR_USERNAME/YOUR_REPO.git"
-GITHUB_RAW_URL="https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main"
+GITHUB_REPO="https://github.com/AndyZ83/SiMon.git"
+GITHUB_RAW_URL="https://raw.githubusercontent.com/AndyZ83/SiMon/main"
 
 # Colors for output
 RED='\033[0;31m'
