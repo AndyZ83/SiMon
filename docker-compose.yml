@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: network-monitor-influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:-networkmonitor123}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-NetworkMonitoring}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-network_metrics}
+      - DOCKER_INFLUXDB_INIT_RETENTION=${RETENTION_DAYS:-30}d
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-network-monitor-token-change-me}
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: network-monitor-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-networkmonitor123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-worldmap-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - monitoring
+    depends_on:
+      - influxdb
+
+  network-collector:
+    build: .
+    container_name: network-monitor-collector
+    restart: unless-stopped
+    environment:
+      - TARGET1=${TARGET1:-8.8.8.8}
+      - TARGET1_NAME=${TARGET1_NAME:-Google DNS}
+      - TARGET2=${TARGET2:-1.1.1.1}
+      - TARGET2_NAME=${TARGET2_NAME:-Cloudflare DNS}
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-network-monitor-token-change-me}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-NetworkMonitoring}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-network_metrics}
+      - COLLECTION_INTERVAL=${COLLECTION_INTERVAL:-30}
+    networks:
+      - monitoring
+    depends_on:
+      - influxdb
+    cap_add:
+      - NET_RAW
+
+volumes:
+  grafana-data:
+  influxdb-data:
+  influxdb-config:
+
+networks:
+  monitoring:
+    driver: bridge
