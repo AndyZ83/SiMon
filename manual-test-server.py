@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import subprocess
 import threading
 import time
+import socket
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -17,12 +18,23 @@ class ManualTestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Handle GET requests for health check"""
         if self.path == '/health':
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            response = {'status': 'healthy', 'timestamp': time.time()}
-            self.wfile.write(json.dumps(response).encode())
+            try:
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Connection', 'close')
+                self.end_headers()
+                response = {
+                    'status': 'healthy', 
+                    'timestamp': time.time(),
+                    'server': 'manual-test-server',
+                    'version': '1.0'
+                }
+                self.wfile.write(json.dumps(response).encode())
+                self.wfile.flush()
+                logger.info("Health check request handled successfully")
+            except Exception as e:
+                logger.error(f"Error in health check: {e}")
         else:
             self.send_error(404, "Not Found")
     
@@ -37,12 +49,17 @@ class ManualTestHandler(BaseHTTPRequestHandler):
     
     def do_OPTIONS(self):
         """Handle CORS preflight requests"""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.send_header('Access-Control-Max-Age', '86400')
-        self.end_headers()
+        try:
+            self.send_response(200)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            self.send_header('Access-Control-Max-Age', '86400')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            logger.info("CORS preflight request handled")
+        except Exception as e:
+            logger.error(f"Error in OPTIONS: {e}")
     
     def handle_manual_test(self):
         """Execute manual network test"""
@@ -55,6 +72,7 @@ class ManualTestHandler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', '*')
             self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
             self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            self.send_header('Connection', 'close')
             self.end_headers()
             
             # Start test in background thread
@@ -72,6 +90,7 @@ class ManualTestHandler(BaseHTTPRequestHandler):
             
             response_json = json.dumps(response)
             self.wfile.write(response_json.encode())
+            self.wfile.flush()
             logger.info("Manual test response sent successfully")
             
         except Exception as e:
@@ -146,24 +165,51 @@ except Exception as e:
         """Override to use our logger"""
         logger.info(f"{self.address_string()} - {format % args}")
 
+class ThreadedHTTPServer(HTTPServer):
+    """Handle requests in a separate thread."""
+    def __init__(self, server_address, RequestHandlerClass):
+        super().__init__(server_address, RequestHandlerClass)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.timeout = 30
+
 def run_server():
     """Run the manual test server"""
     server_address = ('0.0.0.0', 8080)
-    httpd = HTTPServer(server_address, ManualTestHandler)
-    
-    logger.info("Manual Test Server starting on 0.0.0.0:8080...")
-    logger.info("Endpoints:")
-    logger.info("  GET  /health      - Health check")
-    logger.info("  POST /manual-test - Execute manual network test")
     
     try:
+        httpd = ThreadedHTTPServer(server_address, ManualTestHandler)
+        logger.info("Manual Test Server starting on 0.0.0.0:8080...")
+        logger.info("Endpoints:")
+        logger.info("  GET  /health      - Health check")
+        logger.info("  POST /manual-test - Execute manual network test")
+        
+        # Test if port is available
+        test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            test_socket.bind(('0.0.0.0', 8080))
+            test_socket.close()
+            logger.info("Port 8080 is available")
+        except OSError as e:
+            logger.error(f"Port 8080 is not available: {e}")
+            test_socket.close()
+            return
+        
+        logger.info("Server is ready to accept connections")
         httpd.serve_forever()
+        
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
     except Exception as e:
         logger.error(f"Server error: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
-        httpd.server_close()
+        try:
+            httpd.server_close()
+            logger.info("Server closed")
+        except:
+            pass
 
 if __name__ == "__main__":
     run_server()
