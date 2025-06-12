@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Check which script to run based on command line arguments
-if [ "$1" = "manual-test-server.py" ]; then
+if [[ "$*" == *"manual-test-server.py"* ]]; then
     echo "Starting Manual Test Server..."
     echo "Listening on port 8080"
     echo "Endpoints:"
@@ -10,7 +10,7 @@ if [ "$1" = "manual-test-server.py" ]; then
     
     # Wait for InfluxDB to be ready
     echo "Waiting for InfluxDB to be ready..."
-    while ! curl -f -s $INFLUXDB_URL/health > /dev/null; do
+    while ! curl -f -s $INFLUXDB_URL/health > /dev/null 2>&1; do
         echo "InfluxDB not ready, waiting..."
         sleep 5
     done
@@ -18,7 +18,7 @@ if [ "$1" = "manual-test-server.py" ]; then
     echo "InfluxDB is ready, starting manual test server..."
     exec python3 manual-test-server.py
     
-elif [ "$1" = "collector.py" ]; then
+elif [[ "$*" == *"collector.py"* ]]; then
     echo "Starting Network Monitor Collector..."
     echo "Targets: $TARGET1_NAME ($TARGET1), $TARGET2_NAME ($TARGET2)"
     echo "Collection interval: ${COLLECTION_INTERVAL}s"
@@ -26,7 +26,7 @@ elif [ "$1" = "collector.py" ]; then
 
     # Wait for InfluxDB to be ready
     echo "Waiting for InfluxDB to be ready..."
-    while ! curl -f -s $INFLUXDB_URL/health > /dev/null; do
+    while ! curl -f -s $INFLUXDB_URL/health > /dev/null 2>&1; do
         echo "InfluxDB not ready, waiting..."
         sleep 5
     done
@@ -43,7 +43,7 @@ else
 
     # Wait for InfluxDB to be ready
     echo "Waiting for InfluxDB to be ready..."
-    while ! curl -f -s $INFLUXDB_URL/health > /dev/null; do
+    while ! curl -f -s $INFLUXDB_URL/health > /dev/null 2>&1; do
         echo "InfluxDB not ready, waiting..."
         sleep 5
     done
