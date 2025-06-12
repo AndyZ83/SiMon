@@ -48,7 +48,7 @@
       },
       "id": 10,
       "options": {
-        "content": "<div style=\"text-align: center; padding: 10px; background: linear-gradient(90deg, #4CAF50, #2196F3); color: white; border-radius: 8px; font-family: Arial, sans-serif;\">\n  <h2 style=\"margin: 0; font-size: 24px;\">🌐 Network Performance Monitor - ISP Report Dashboard</h2>\n  <p style=\"margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;\">Professional monitoring for ISP reporting • Click \"Manual Test Runner\" above to run immediate tests</p>\n</div>",
+        "content": "<div style=\"text-align: center; padding: 10px; background: linear-gradient(90deg, #4CAF50, #2196F3); color: white; border-radius: 8px; font-family: Arial, sans-serif;\">\n  <h2 style=\"margin: 0; font-size: 24px;\">🌐 Network Performance Monitor - ISP Report Dashboard</h2>\n  <p style=\"margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;\">Professional monitoring for ISP reporting • Enhanced speedtest for high-speed connections • Click \"Manual Test Runner\" above</p>\n</div>",
         "mode": "html"
       },
       "pluginVersion": "10.2.0",
@@ -251,27 +251,27 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "vis": false
             },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
+            "lineInterpolation": "smooth",
+            "lineWidth": 3,
+            "pointSize": 6,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "line"
             }
           },
           "mappings": [],
@@ -283,14 +283,59 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 100
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 200
               }
             ]
           },
-          "unit": "Mbits"
+          "unit": "Mbits",
+          "min": 0,
+          "max": 400
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "download_speed_mbps"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Download Speed"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "upload_speed_mbps"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Upload Speed"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -301,13 +346,13 @@
       "id": 3,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["lastNotNull", "max", "mean"],
+          "displayMode": "table",
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -316,11 +361,11 @@
             "type": "influxdb",
             "uid": "InfluxDB"
           },
-          "query": "from(bucket: \"network_metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"network_speed\")\n  |> filter(fn: (r) => r[\"_field\"] == \"download_speed_mbps\" or r[\"_field\"] == \"upload_speed_mbps\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
+          "query": "from(bucket: \"network_metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"network_speed\")\n  |> filter(fn: (r) => r[\"_field\"] == \"download_speed_mbps\" or r[\"_field\"] == \"upload_speed_mbps\")\n  |> filter(fn: (r) => r[\"_value\"] > 0)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "refId": "A"
         }
       ],
-      "title": "Internet Speed (Download/Upload)",
+      "title": "Internet Speed Test Results (Enhanced for High-Speed Connections)",
       "type": "timeseries"
     },
     {
@@ -368,7 +413,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 8,
+        "w": 6,
         "x": 0,
         "y": 19
       },
@@ -412,6 +457,77 @@
             "mode": "thresholds"
           },
           "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 150
+              },
+              {
+                "color": "blue",
+                "value": 250
+              }
+            ]
+          },
+          "unit": "Mbits",
+          "min": 0,
+          "max": 400
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 19
+      },
+      "id": 7,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "10.2.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "InfluxDB"
+          },
+          "query": "from(bucket: \"network_metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"network_speed\")\n  |> filter(fn: (r) => r[\"_field\"] == \"download_speed_mbps\")\n  |> filter(fn: (r) => r[\"_value\"] > 0)\n  |> last()",
+          "refId": "A"
+        }
+      ],
+      "title": "Current Download Speed",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "InfluxDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
           "max": 100,
           "min": 0,
           "thresholds": {
@@ -437,8 +553,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 8,
-        "x": 8,
+        "w": 6,
+        "x": 12,
         "y": 19
       },
       "id": 5,
@@ -544,8 +660,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 8,
-        "x": 16,
+        "w": 6,
+        "x": 18,
         "y": 19
       },
       "id": 6,
@@ -580,7 +696,8 @@
   "tags": [
     "network",
     "monitoring",
-    "isp"
+    "isp",
+    "speedtest"
   ],
   "templating": {
     "list": []
@@ -591,8 +708,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Network Performance Monitor - ISP Report",
+  "title": "Network Performance Monitor - ISP Report (Enhanced Speedtest)",
   "uid": "network-monitor",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
