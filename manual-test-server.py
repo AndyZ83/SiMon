@@ -14,6 +14,18 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class ManualTestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        """Handle GET requests for health check"""
+        if self.path == '/health':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            response = {'status': 'healthy', 'timestamp': time.time()}
+            self.wfile.write(json.dumps(response).encode())
+        else:
+            self.send_error(404, "Not Found")
+    
     def do_POST(self):
         """Handle POST requests for manual tests"""
         parsed_path = urlparse(self.path)
@@ -27,8 +39,9 @@ class ManualTestHandler(BaseHTTPRequestHandler):
         """Handle CORS preflight requests"""
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.send_header('Access-Control-Max-Age', '86400')
         self.end_headers()
     
     def handle_manual_test(self):
@@ -40,6 +53,8 @@ class ManualTestHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             self.end_headers()
             
             # Start test in background thread
@@ -50,21 +65,26 @@ class ManualTestHandler(BaseHTTPRequestHandler):
             # Return immediate response
             response = {
                 'status': 'success',
-                'message': 'Manual test started',
-                'timestamp': time.time()
+                'message': 'Manual test started successfully',
+                'timestamp': time.time(),
+                'note': 'Results will be available in ~30 seconds'
             }
             
-            self.wfile.write(json.dumps(response).encode())
-            logger.info("Manual test response sent")
+            response_json = json.dumps(response)
+            self.wfile.write(response_json.encode())
+            logger.info("Manual test response sent successfully")
             
         except Exception as e:
             logger.error(f"Error handling manual test: {e}")
-            self.send_error(500, f"Internal Server Error: {e}")
+            try:
+                self.send_error(500, f"Internal Server Error: {e}")
+            except:
+                pass  # Connection might be closed
     
     def run_test_async(self):
         """Run the actual test in background"""
         try:
-            logger.info("Starting manual network test...")
+            logger.info("Starting background manual network test...")
             
             # Execute the collector directly
             result = subprocess.run([
@@ -89,7 +109,14 @@ try:
     monitor.write_metrics(metrics)
     
     print("Manual test completed successfully!")
-    print(f"Results: {json.dumps(metrics, indent=2, default=str)}")
+    print(f"Download: {metrics['speed_test']['download_speed_mbps']} Mbps")
+    print(f"Upload: {metrics['speed_test']['upload_speed_mbps']} Mbps")
+    
+    for ping_result in metrics['ping_results']:
+        if ping_result['success']:
+            print(f"{ping_result['target_name']}: {ping_result['avg_rtt']}ms RTT, {ping_result['packet_loss']}% loss")
+        else:
+            print(f"{ping_result['target_name']}: FAILED")
     
 except Exception as e:
     print(f"Manual test failed: {e}")
@@ -126,6 +153,7 @@ def run_server():
     
     logger.info("Manual Test Server starting on 0.0.0.0:8080...")
     logger.info("Endpoints:")
+    logger.info("  GET  /health      - Health check")
     logger.info("  POST /manual-test - Execute manual network test")
     
     try:
