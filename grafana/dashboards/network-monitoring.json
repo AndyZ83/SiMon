@@ -26,11 +26,11 @@
       "includeVars": false,
       "keepTime": false,
       "tags": [],
-      "targetBlank": true,
+      "targetBlank": false,
       "title": "🚀 Manual Test Runner",
       "tooltip": "Run manual network test",
       "type": "link",
-      "url": "javascript:void(function(){var xhr=new XMLHttpRequest();xhr.open('POST','http://'+window.location.hostname+':8080/manual-test',true);xhr.onreadystatechange=function(){if(xhr.readyState===4){if(xhr.status===200){alert('✅ Manual test started! Results will appear in ~30 seconds.');setTimeout(function(){window.location.reload();},2000);}else{alert('❌ Test failed. Check if container is running.');}}};xhr.send();})();"
+      "url": "javascript:void(function(){fetch('http://'+window.location.hostname+':8080/manual-test',{method:'POST',headers:{'Content-Type':'application/json'}}).then(response=>response.json()).then(data=>{alert('✅ Manual test started! Results will appear in ~30 seconds.');setTimeout(function(){window.location.reload();},3000);}).catch(error=>{console.error('Error:',error);alert('❌ Test failed. Check if container is running.');});})();"
     }
   ],
   "liveNow": false,
