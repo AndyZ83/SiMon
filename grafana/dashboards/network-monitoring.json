@@ -26,11 +26,11 @@
       "includeVars": false,
       "keepTime": false,
       "tags": [],
-      "targetBlank": false,
+      "targetBlank": true,
       "title": "🚀 Manual Test Runner",
       "tooltip": "Run manual network test",
       "type": "link",
-      "url": "javascript:void(function(){fetch('http://'+window.location.hostname+':8080/manual-test',{method:'POST',headers:{'Content-Type':'application/json'}}).then(response=>response.json()).then(data=>{alert('✅ Manual test started! Results will appear in ~30 seconds.');setTimeout(function(){window.location.reload();},3000);}).catch(error=>{console.error('Error:',error);alert('❌ Test failed. Check if container is running.');});})();"
+      "url": "http://localhost:8080/manual-test"
     }
   ],
   "liveNow": false,
@@ -41,14 +41,14 @@
         "uid": "-- Mixed --"
       },
       "gridPos": {
-        "h": 3,
+        "h": 4,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "id": 10,
       "options": {
-        "content": "<div style=\"text-align: center; padding: 10px; background: linear-gradient(90deg, #4CAF50, #2196F3); color: white; border-radius: 8px; font-family: Arial, sans-serif;\">\n  <h2 style=\"margin: 0; font-size: 24px;\">🌐 Network Performance Monitor - ISP Report Dashboard</h2>\n  <p style=\"margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;\">Professional monitoring for ISP reporting • Click \"Manual Test Runner\" above to run immediate tests</p>\n</div>",
+        "content": "<div style=\"text-align: center; padding: 15px; background: linear-gradient(90deg, #4CAF50, #2196F3); color: white; border-radius: 8px; font-family: Arial, sans-serif;\">\n  <h2 style=\"margin: 0; font-size: 24px;\">🌐 Network Performance Monitor - ISP Report Dashboard</h2>\n  <p style=\"margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;\">Professional monitoring for ISP reporting</p>\n  <div style=\"margin-top: 10px;\">\n    <button onclick=\"runManualTest()\" style=\"background: rgba(255,255,255,0.2); border: 2px solid white; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px;\">🚀 Run Manual Test</button>\n  </div>\n</div>\n\n<script>\nfunction runManualTest() {\n  fetch('http://' + window.location.hostname + ':8080/manual-test', {\n    method: 'POST',\n    headers: {\n      'Content-Type': 'application/json'\n    }\n  })\n  .then(response => response.json())\n  .then(data => {\n    alert('✅ Manual test started! Results will appear in ~30 seconds.');\n    setTimeout(function() {\n      window.location.reload();\n    }, 3000);\n  })\n  .catch(error => {\n    console.error('Error:', error);\n    alert('❌ Test failed. Check if container is running.');\n  });\n}\n</script>",
         "mode": "html"
       },
       "pluginVersion": "10.2.0",
@@ -116,7 +116,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 3
+        "y": 4
       },
       "id": 1,
       "options": {
@@ -209,7 +209,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 3
+        "y": 4
       },
       "id": 2,
       "options": {
@@ -296,7 +296,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 11
+        "y": 12
       },
       "id": 3,
       "options": {
@@ -370,7 +370,7 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 19
+        "y": 20
       },
       "id": 4,
       "options": {
@@ -439,7 +439,7 @@
         "h": 4,
         "w": 8,
         "x": 8,
-        "y": 19
+        "y": 20
       },
       "id": 5,
       "options": {
@@ -546,7 +546,7 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 19
+        "y": 20
       },
       "id": 6,
       "options": {
