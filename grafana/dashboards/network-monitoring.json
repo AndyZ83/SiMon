@@ -19,9 +19,43 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "🚀 Manual Test Runner",
+      "tooltip": "Run manual network test",
+      "type": "link",
+      "url": "javascript:void(function(){var xhr=new XMLHttpRequest();xhr.open('POST','http://'+window.location.hostname+':8080/manual-test',true);xhr.onreadystatechange=function(){if(xhr.readyState===4){if(xhr.status===200){alert('✅ Manual test started! Results will appear in ~30 seconds.');setTimeout(function(){window.location.reload();},2000);}else{alert('❌ Test failed. Check if container is running.');}}};xhr.send();})();"
+    }
+  ],
   "liveNow": false,
   "panels": [
+    {
+      "datasource": {
+        "type": "text",
+        "uid": "-- Mixed --"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 10,
+      "options": {
+        "content": "<div style=\"text-align: center; padding: 10px; background: linear-gradient(90deg, #4CAF50, #2196F3); color: white; border-radius: 8px; font-family: Arial, sans-serif;\">\n  <h2 style=\"margin: 0; font-size: 24px;\">🌐 Network Performance Monitor - ISP Report Dashboard</h2>\n  <p style=\"margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;\">Professional monitoring for ISP reporting • Click \"Manual Test Runner\" above to run immediate tests</p>\n</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "10.2.0",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
     {
       "datasource": {
         "type": "influxdb",
@@ -82,7 +116,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 3
       },
       "id": 1,
       "options": {
@@ -175,7 +209,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 3
       },
       "id": 2,
       "options": {
@@ -262,7 +296,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 11
       },
       "id": 3,
       "options": {
@@ -336,7 +370,7 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 16
+        "y": 19
       },
       "id": 4,
       "options": {
@@ -405,7 +439,7 @@
         "h": 4,
         "w": 8,
         "x": 8,
-        "y": 16
+        "y": 19
       },
       "id": 5,
       "options": {
@@ -512,7 +546,7 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 16
+        "y": 19
       },
       "id": 6,
       "options": {

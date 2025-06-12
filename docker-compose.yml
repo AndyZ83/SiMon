@@ -61,6 +61,29 @@ services:
     cap_add:
       - NET_RAW
 
+  manual-test-server:
+    build: .
+    container_name: network-monitor-manual-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - TARGET1=${TARGET1:-8.8.8.8}
+      - TARGET1_NAME=${TARGET1_NAME:-Google DNS}
+      - TARGET2=${TARGET2:-1.1.1.1}
+      - TARGET2_NAME=${TARGET2_NAME:-Cloudflare DNS}
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-network-monitor-token-change-me}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-NetworkMonitoring}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-network_metrics}
+    command: python3 manual-test-server.py
+    networks:
+      - monitoring
+    depends_on:
+      - influxdb
+    cap_add:
+      - NET_RAW
+
 volumes:
   grafana-data:
   influxdb-data:

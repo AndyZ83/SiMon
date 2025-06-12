@@ -266,13 +266,44 @@ class NetworkMonitor:
             self.ping_target(self.target2, self.target2_name)
         ]
         
-        # Perform speed test (every 5th collection to reduce load)
+        # Always perform speed test for manual calls
+        logger.info("Running speed test...")
+        speed_test = self.perform_speed_test()
+        
+        metrics = {
+            'ping_results': ping_results,
+            'speed_test': speed_test,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        
+        # Log summary
+        for result in ping_results:
+            if result['success']:
+                logger.info(f"{result['target_name']}: {result['avg_rtt']:.1f}ms RTT, {result['packet_loss']:.1f}% loss")
+            else:
+                logger.warning(f"{result['target_name']}: FAILED")
+        
+        if speed_test['download_speed_mbps'] > 0:
+            logger.info(f"Speed: {speed_test['download_speed_mbps']:.1f} Mbps down, {speed_test['upload_speed_mbps']:.1f} Mbps up")
+        
+        return metrics
+
+    def collect_metrics_scheduled(self):
+        """Collect metrics for scheduled runs (with speed test frequency control)"""
+        logger.info("Starting scheduled metrics collection...")
+        
+        # Perform ping tests
+        ping_results = [
+            self.ping_target(self.target1, self.target1_name),
+            self.ping_target(self.target2, self.target2_name)
+        ]
+        
+        # Perform speed test every 5 minutes (when minute is divisible by 5)
         speed_test = {'download_speed_mbps': 0, 'upload_speed_mbps': 0}
         
-        # Check if we should run speed test (every 5 minutes if collection interval is 60s)
         current_minute = datetime.now().minute
         if current_minute % 5 == 0:  # Run speed test every 5 minutes
-            logger.info("Running speed test...")
+            logger.info("Running scheduled speed test...")
             speed_test = self.perform_speed_test()
         else:
             logger.info("Skipping speed test this cycle")
@@ -301,8 +332,8 @@ class NetworkMonitor:
         
         while True:
             try:
-                # Collect metrics
-                metrics = self.collect_metrics()
+                # Collect metrics (scheduled version with speed test frequency control)
+                metrics = self.collect_metrics_scheduled()
                 
                 # Write to InfluxDB
                 self.write_metrics(metrics)

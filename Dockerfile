@@ -18,8 +18,9 @@ RUN apk add --no-cache \
 # Create app directory
 WORKDIR /app
 
-# Copy collector script
+# Copy collector script and manual test server
 COPY collector.py .
+COPY manual-test-server.py .
 COPY entrypoint.sh .
 
 # Make scripts executable
