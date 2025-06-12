@@ -198,13 +198,13 @@ class NetworkMonitor:
                 logger.error(f"Upload speed test error: {e}")
                 upload_speed_mbps = download_speed_mbps * 0.1 if download_speed_mbps > 0 else 0
             
-            # Ensure reasonable values
+            # Ensure reasonable values and convert to integers for InfluxDB consistency
             download_speed_mbps = max(0, min(1000, download_speed_mbps))  # Cap at 1Gbps
             upload_speed_mbps = max(0, min(1000, upload_speed_mbps))
             
             return {
-                'download_speed_mbps': round(download_speed_mbps, 2),
-                'upload_speed_mbps': round(upload_speed_mbps, 2)
+                'download_speed_mbps': int(round(download_speed_mbps)),  # Convert to integer
+                'upload_speed_mbps': int(round(upload_speed_mbps))       # Convert to integer
             }
             
         except Exception as e:
@@ -237,10 +237,10 @@ class NetworkMonitor:
                 
                 points.append(point)
             
-            # Write speed test metrics
+            # Write speed test metrics - ensure integers for consistency
             speed_point = Point("network_speed") \
-                .field("download_speed_mbps", metrics['speed_test']['download_speed_mbps']) \
-                .field("upload_speed_mbps", metrics['speed_test']['upload_speed_mbps']) \
+                .field("download_speed_mbps", int(metrics['speed_test']['download_speed_mbps'])) \
+                .field("upload_speed_mbps", int(metrics['speed_test']['upload_speed_mbps'])) \
                 .time(timestamp)
             points.append(speed_point)
             
@@ -284,7 +284,7 @@ class NetworkMonitor:
                 logger.warning(f"{result['target_name']}: FAILED")
         
         if speed_test['download_speed_mbps'] > 0:
-            logger.info(f"Speed: {speed_test['download_speed_mbps']:.1f} Mbps down, {speed_test['upload_speed_mbps']:.1f} Mbps up")
+            logger.info(f"Speed: {speed_test['download_speed_mbps']} Mbps down, {speed_test['upload_speed_mbps']} Mbps up")
         
         return metrics
 
@@ -322,7 +322,7 @@ class NetworkMonitor:
                 logger.warning(f"{result['target_name']}: FAILED")
         
         if speed_test['download_speed_mbps'] > 0:
-            logger.info(f"Speed: {speed_test['download_speed_mbps']:.1f} Mbps down, {speed_test['upload_speed_mbps']:.1f} Mbps up")
+            logger.info(f"Speed: {speed_test['download_speed_mbps']} Mbps down, {speed_test['upload_speed_mbps']} Mbps up")
         
         return metrics
 
