@@ -54,6 +54,7 @@ services:
       - INFLUXDB_ORG=${INFLUXDB_ORG:-NetworkMonitoring}
       - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-network_metrics}
       - COLLECTION_INTERVAL=${COLLECTION_INTERVAL:-30}
+    command: ["python3", "collector.py"]
     networks:
       - monitoring
     depends_on:
