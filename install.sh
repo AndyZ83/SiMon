@@ -137,17 +137,90 @@ list_storages() {
     echo
 }
 
+# Function to get available templates
+get_available_templates() {
+    local templates=()
+    
+    # Check for downloaded templates
+    if command -v pveam >/dev/null 2>&1; then
+        # Get list of downloaded templates
+        local downloaded=$(pveam list local 2>/dev/null | grep -E "ubuntu-22|ubuntu-20|debian-11|debian-12" | awk '{print $2}' | head -5)
+        if [ -n "$downloaded" ]; then
+            while IFS= read -r template; do
+                templates+=("$template")
+            done <<< "$downloaded"
+        fi
+    fi
+    
+    # If no templates found, add common ones
+    if [ ${#templates[@]} -eq 0 ]; then
+        templates+=(
+            "ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+            "ubuntu-20.04-standard_20.04-1_amd64.tar.zst"
+            "debian-11-standard_11.7-1_amd64.tar.zst"
+            "debian-12-standard_12.2-1_amd64.tar.zst"
+        )
+    fi
+    
+    printf '%s\n' "${templates[@]}"
+}
+
 # Function to list available templates
 list_templates() {
-    echo -e "${CYAN}Available templates (showing Ubuntu/Debian):${NC}"
-    if command -v pveam >/dev/null 2>&1; then
-        pveam available | grep -E "ubuntu-22|ubuntu-20|debian-11|debian-12" | head -5 | awk '{print "  • " $2}' 2>/dev/null || echo "  • ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
-    else
-        echo "  • ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
-        echo "  • ubuntu-20.04-standard_20.04-1_amd64.tar.zst"
-        echo "  • debian-11-standard_11.7-1_amd64.tar.zst"
-    fi
+    echo -e "${CYAN}Available templates:${NC}"
+    get_available_templates | while read -r template; do
+        if [ -n "$template" ]; then
+            echo -e "  • ${template}"
+        fi
+    done
     echo
+}
+
+# Function to download template if needed
+ensure_template_available() {
+    local template="$1"
+    
+    echo -e "${BLUE}Checking template availability: ${template}${NC}"
+    
+    # Check if template exists locally
+    if pveam list local 2>/dev/null | grep -q "$template"; then
+        echo -e "${GREEN}Template already available locally${NC}"
+        return 0
+    fi
+    
+    echo -e "${YELLOW}Template not found locally, downloading...${NC}"
+    
+    # Update template list
+    echo -e "${BLUE}Updating template repository...${NC}"
+    pveam update || true
+    
+    # Try to download the template
+    echo -e "${BLUE}Downloading template: ${template}${NC}"
+    if pveam download local "$template"; then
+        echo -e "${GREEN}Template downloaded successfully${NC}"
+        return 0
+    else
+        echo -e "${YELLOW}Failed to download specific template, trying alternatives...${NC}"
+        
+        # Try alternative Ubuntu templates
+        local alternatives=(
+            "ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+            "ubuntu-20.04-standard_20.04-1_amd64.tar.zst"
+            "debian-11-standard_11.7-1_amd64.tar.zst"
+        )
+        
+        for alt_template in "${alternatives[@]}"; do
+            echo -e "${BLUE}Trying alternative: ${alt_template}${NC}"
+            if pveam download local "$alt_template" 2>/dev/null; then
+                echo -e "${GREEN}Downloaded alternative template: ${alt_template}${NC}"
+                TEMPLATE="$alt_template"
+                return 0
+            fi
+        done
+        
+        echo -e "${RED}Failed to download any suitable template${NC}"
+        return 1
+    fi
 }
 
 # Function to list network bridges
@@ -291,6 +364,12 @@ perform_installation() {
     echo
     echo -e "${GREEN}Starting installation...${NC}"
     
+    # Ensure template is available
+    if ! ensure_template_available "$TEMPLATE"; then
+        echo -e "${RED}Failed to ensure template availability${NC}"
+        exit 1
+    fi
+    
     # Destroy existing container if requested
     if [ "$DESTROY_EXISTING" = "yes" ]; then
         echo -e "${YELLOW}Stopping and destroying existing container...${NC}"
@@ -302,9 +381,10 @@ perform_installation() {
     
     echo -e "${GREEN}Creating LXC container...${NC}"
     echo -e "${BLUE}Using storage format: ${STORAGE}:${DISK_SIZE}${NC}"
+    echo -e "${BLUE}Using template: ${TEMPLATE}${NC}"
     
     # Create the container with correct storage format
-    pct create ${CONTAINER_ID} ${TEMPLATE} \
+    if ! pct create ${CONTAINER_ID} ${TEMPLATE} \
         --hostname ${CONTAINER_NAME} \
         --memory ${MEMORY} \
         --cores ${CORES} \
@@ -314,7 +394,10 @@ perform_installation() {
         --features nesting=1 \
         --unprivileged 1 \
         --onboot 1 \
-        --startup order=3
+        --startup order=3; then
+        echo -e "${RED}Failed to create container${NC}"
+        exit 1
+    fi
     
     echo -e "${GREEN}Starting container...${NC}"
     pct start ${CONTAINER_ID}
@@ -419,6 +502,7 @@ show_success() {
     echo -e "  • Container Name: ${BOLD}${CONTAINER_NAME}${NC}"
     echo -e "  • IP Address: ${BOLD}${CONTAINER_IP}${NC}"
     echo -e "  • Root Password: ${BOLD}${PASSWORD}${NC}"
+    echo -e "  • Template Used: ${BOLD}${TEMPLATE}${NC}"
     echo
     echo -e "${CYAN}Access URLs:${NC}"
     echo -e "  • ${BOLD}Grafana Dashboard: ${GREEN}http://${CONTAINER_IP}:3000${NC}"
