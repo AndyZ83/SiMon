@@ -10,7 +10,8 @@ import {
   XCircle,
   TrendingUp,
   Server,
-  Globe
+  Globe,
+  Info
 } from 'lucide-react';
 
 interface TestResult {
@@ -211,6 +212,26 @@ export const ConnectionMonitor: React.FC = () => {
           </div>
         </div>
 
+        {/* Info Banner */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8">
+          <div className="flex items-start gap-3">
+            <Info className="text-blue-600 mt-1" size={20} />
+            <div>
+              <h3 className="text-blue-900 font-semibold mb-2">Demo Interface Information</h3>
+              <p className="text-blue-800 mb-3">
+                This is a demonstration interface showing how the monitoring system works. 
+                For production monitoring with real data, access your Grafana dashboard at:
+              </p>
+              <div className="bg-blue-100 rounded-lg p-3 font-mono text-sm text-blue-900">
+                http://[YOUR-CONTAINER-IP]:3000
+              </div>
+              <p className="text-blue-700 text-sm mt-2">
+                Username: <strong>admin</strong> | Password: <strong>networkmonitor123</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Control Panel */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
@@ -256,7 +277,7 @@ export const ConnectionMonitor: React.FC = () => {
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
-                {isMonitoring ? 'Stop Monitoring' : 'Start Monitoring'}
+                {isMonitoring ? 'Stop Demo' : 'Start Demo'}
               </button>
               
               <button
@@ -351,7 +372,7 @@ export const ConnectionMonitor: React.FC = () => {
         {testHistory.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Test History</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Demo Test History</h2>
               <div className="text-sm text-gray-600">
                 {testHistory.length} tests recorded
               </div>

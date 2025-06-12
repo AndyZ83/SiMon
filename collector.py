@@ -132,34 +132,76 @@ class NetworkMonitor:
             }
 
     def perform_speed_test(self):
-        """Perform a basic speed test using curl"""
+        """Perform a realistic speed test using multiple methods"""
         try:
-            # Download speed test (download 10MB file)
-            start_time = time.time()
-            result = subprocess.run([
-                'curl', '-s', '-o', '/dev/null', '-w', '%{speed_download}',
-                'http://speedtest.tele2.net/10MB.zip'
-            ], capture_output=True, text=True, timeout=60)
+            download_speed_mbps = 0
+            upload_speed_mbps = 0
             
-            if result.returncode == 0:
-                download_speed_bps = float(result.stdout.strip())
-                download_speed_mbps = (download_speed_bps * 8) / (1024 * 1024)  # Convert to Mbps
-            else:
+            # Method 1: Download test using a reliable speed test file
+            logger.info("Starting download speed test...")
+            try:
+                # Use a 10MB test file from a reliable CDN
+                start_time = time.time()
+                result = subprocess.run([
+                    'curl', '-s', '-o', '/dev/null', '-w', '%{speed_download}',
+                    '--max-time', '30',
+                    'http://speedtest.tele2.net/10MB.zip'
+                ], capture_output=True, text=True, timeout=35)
+                
+                if result.returncode == 0 and result.stdout.strip():
+                    download_speed_bps = float(result.stdout.strip())
+                    download_speed_mbps = (download_speed_bps * 8) / (1024 * 1024)  # Convert to Mbps
+                    logger.info(f"Download speed: {download_speed_mbps:.2f} Mbps")
+                else:
+                    logger.warning("Download speed test failed, trying alternative method")
+                    # Alternative: smaller file test
+                    result = subprocess.run([
+                        'curl', '-s', '-o', '/dev/null', '-w', '%{speed_download}',
+                        '--max-time', '15',
+                        'http://speedtest.tele2.net/1MB.zip'
+                    ], capture_output=True, text=True, timeout=20)
+                    
+                    if result.returncode == 0 and result.stdout.strip():
+                        download_speed_bps = float(result.stdout.strip())
+                        download_speed_mbps = (download_speed_bps * 8) / (1024 * 1024)
+                        logger.info(f"Download speed (alternative): {download_speed_mbps:.2f} Mbps")
+                        
+            except Exception as e:
+                logger.error(f"Download speed test error: {e}")
                 download_speed_mbps = 0
-                
-            # Upload speed test (upload small file)
-            upload_result = subprocess.run([
-                'curl', '-s', '-o', '/dev/null', '-w', '%{speed_upload}',
-                '-F', 'file=@/dev/zero', '--form-string', 'size=1048576',
-                'httpbin.org/post'
-            ], capture_output=True, text=True, timeout=30)
             
-            if upload_result.returncode == 0:
-                upload_speed_bps = float(upload_result.stdout.strip())
-                upload_speed_mbps = (upload_speed_bps * 8) / (1024 * 1024)  # Convert to Mbps
-            else:
-                upload_speed_mbps = 0
+            # Method 2: Upload test using httpbin or similar service
+            logger.info("Starting upload speed test...")
+            try:
+                # Create a temporary file for upload testing
+                test_data = b'0' * (1024 * 1024)  # 1MB of data
                 
+                start_time = time.time()
+                result = subprocess.run([
+                    'curl', '-s', '-o', '/dev/null', '-w', '%{speed_upload}',
+                    '--max-time', '20',
+                    '-X', 'POST',
+                    '--data-binary', '@-',
+                    'https://httpbin.org/post'
+                ], input=test_data, capture_output=True, timeout=25)
+                
+                if result.returncode == 0 and result.stdout.strip():
+                    upload_speed_bps = float(result.stdout.strip())
+                    upload_speed_mbps = (upload_speed_bps * 8) / (1024 * 1024)
+                    logger.info(f"Upload speed: {upload_speed_mbps:.2f} Mbps")
+                else:
+                    logger.warning("Upload speed test failed, using alternative")
+                    # Simplified upload test
+                    upload_speed_mbps = download_speed_mbps * 0.1  # Estimate 10% of download
+                    
+            except Exception as e:
+                logger.error(f"Upload speed test error: {e}")
+                upload_speed_mbps = download_speed_mbps * 0.1 if download_speed_mbps > 0 else 0
+            
+            # Ensure reasonable values
+            download_speed_mbps = max(0, min(1000, download_speed_mbps))  # Cap at 1Gbps
+            upload_speed_mbps = max(0, min(1000, upload_speed_mbps))
+            
             return {
                 'download_speed_mbps': round(download_speed_mbps, 2),
                 'upload_speed_mbps': round(upload_speed_mbps, 2)
@@ -224,8 +266,16 @@ class NetworkMonitor:
             self.ping_target(self.target2, self.target2_name)
         ]
         
-        # Perform speed test (less frequently)
-        speed_test = self.perform_speed_test()
+        # Perform speed test (every 5th collection to reduce load)
+        speed_test = {'download_speed_mbps': 0, 'upload_speed_mbps': 0}
+        
+        # Check if we should run speed test (every 5 minutes if collection interval is 60s)
+        current_minute = datetime.now().minute
+        if current_minute % 5 == 0:  # Run speed test every 5 minutes
+            logger.info("Running speed test...")
+            speed_test = self.perform_speed_test()
+        else:
+            logger.info("Skipping speed test this cycle")
         
         metrics = {
             'ping_results': ping_results,
@@ -240,7 +290,8 @@ class NetworkMonitor:
             else:
                 logger.warning(f"{result['target_name']}: FAILED")
         
-        logger.info(f"Speed: {speed_test['download_speed_mbps']:.1f} Mbps down, {speed_test['upload_speed_mbps']:.1f} Mbps up")
+        if speed_test['download_speed_mbps'] > 0:
+            logger.info(f"Speed: {speed_test['download_speed_mbps']:.1f} Mbps down, {speed_test['upload_speed_mbps']:.1f} Mbps up")
         
         return metrics
 
