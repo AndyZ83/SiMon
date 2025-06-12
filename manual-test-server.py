@@ -119,7 +119,7 @@ except Exception as e:
 
 def run_server():
     """Run the manual test server"""
-    server_address = ('', 8080)
+    server_address = ('0.0.0.0', 8080)
     httpd = HTTPServer(server_address, ManualTestHandler)
     
     logger.info("Manual Test Server starting on port 8080...")
