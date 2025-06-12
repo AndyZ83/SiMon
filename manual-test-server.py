@@ -34,6 +34,8 @@ class ManualTestHandler(BaseHTTPRequestHandler):
     def handle_manual_test(self):
         """Execute manual network test"""
         try:
+            logger.info("Manual test request received")
+            
             # Set CORS headers
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -53,7 +55,7 @@ class ManualTestHandler(BaseHTTPRequestHandler):
             }
             
             self.wfile.write(json.dumps(response).encode())
-            logger.info("Manual test request received and started")
+            logger.info("Manual test response sent")
             
         except Exception as e:
             logger.error(f"Error handling manual test: {e}")
@@ -122,7 +124,7 @@ def run_server():
     server_address = ('0.0.0.0', 8080)
     httpd = HTTPServer(server_address, ManualTestHandler)
     
-    logger.info("Manual Test Server starting on port 8080...")
+    logger.info("Manual Test Server starting on 0.0.0.0:8080...")
     logger.info("Endpoints:")
     logger.info("  POST /manual-test - Execute manual network test")
     
