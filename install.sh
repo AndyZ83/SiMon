@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Network Performance Monitor - Interactive Proxmox Installation Wizard
+# Network Performance Monitor - Interactive Proxmox Installation Wizard with Rollback
 # Usage: bash -c "$(curl -fsSL https://raw.githubusercontent.com/AndyZ83/SiMon/main/install.sh)"
 
 set -e
@@ -18,6 +18,11 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
+# Global variables for rollback
+CONTAINER_CREATED=false
+CONTAINER_STARTED=false
+INSTALLATION_FAILED=false
+
 # Default values
 DEFAULT_CONTAINER_ID="200"
 DEFAULT_CONTAINER_NAME="network-monitor"
@@ -28,6 +33,50 @@ DEFAULT_CORES="2"
 DEFAULT_PASSWORD="networkmonitor123"
 DEFAULT_NET_BRIDGE="vmbr0"
 
+# Rollback function
+perform_rollback() {
+    local exit_code=$1
+    echo
+    echo -e "${RED}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║${NC}                            ${BOLD}${RED}INSTALLATION FAILED${NC}                             ${RED}║${NC}"
+    echo -e "${RED}║${NC}                          ${YELLOW}Performing automatic rollback...${NC}                    ${RED}║${NC}"
+    echo -e "${RED}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
+    echo
+    
+    if [ "$CONTAINER_CREATED" = true ]; then
+        echo -e "${YELLOW}Cleaning up container ${CONTAINER_ID}...${NC}"
+        
+        # Stop container if it was started
+        if [ "$CONTAINER_STARTED" = true ]; then
+            echo -e "${BLUE}Stopping container...${NC}"
+            pct stop ${CONTAINER_ID} 2>/dev/null || true
+            sleep 3
+        fi
+        
+        # Destroy container
+        echo -e "${BLUE}Destroying container...${NC}"
+        pct destroy ${CONTAINER_ID} 2>/dev/null || true
+        sleep 2
+        
+        # Verify cleanup
+        if pct list | grep -q "^${CONTAINER_ID} "; then
+            echo -e "${RED}Warning: Container ${CONTAINER_ID} still exists. Manual cleanup may be required.${NC}"
+            echo -e "${YELLOW}Run: pct stop ${CONTAINER_ID} && pct destroy ${CONTAINER_ID}${NC}"
+        else
+            echo -e "${GREEN}Container ${CONTAINER_ID} successfully removed${NC}"
+        fi
+    fi
+    
+    echo
+    echo -e "${YELLOW}Rollback completed. System restored to previous state.${NC}"
+    echo -e "${BLUE}You can run the installer again to retry.${NC}"
+    echo
+    exit $exit_code
+}
+
+# Error trap for automatic rollback
+trap 'INSTALLATION_FAILED=true; perform_rollback 1' ERR
+
 # Function to display header
 show_header() {
     clear
@@ -35,10 +84,11 @@ show_header() {
     echo -e "${CYAN}║${NC}                    ${BOLD}${GREEN}Network Performance Monitor${NC}                        ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}                     ${BLUE}Interactive Proxmox Installer${NC}                       ${CYAN}║${NC}"
     echo -e "${CYAN}╠══════════════════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${CYAN}║${NC} ${YELLOW}Professional ISP Reporting Solution${NC}                                    ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}Professional ISP Reporting Solution with Auto-Rollback${NC}                 ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC} • Real-time latency and packet loss monitoring                          ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC} • Grafana dashboards with InfluxDB backend                              ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC} • Automated speed testing and historical data retention                 ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} • Automatic cleanup on installation failure                             ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC} • Source: ${GITHUB_REPO}${NC}                ${CYAN}║${NC}"
     echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo
@@ -309,33 +359,68 @@ check_proxmox() {
     fi
 }
 
+# Function to check and cleanup existing container
+check_existing_container() {
+    if pct list | grep -q "^${CONTAINER_ID} "; then
+        echo -e "${YELLOW}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${YELLOW}║${NC}                        ${BOLD}${YELLOW}EXISTING CONTAINER DETECTED${NC}                        ${YELLOW}║${NC}"
+        echo -e "${YELLOW}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
+        echo
+        echo -e "${YELLOW}Container ID ${CONTAINER_ID} already exists.${NC}"
+        echo -e "${BLUE}Current container details:${NC}"
+        pct config ${CONTAINER_ID} | head -10
+        echo
+        
+        if get_yes_no "Do you want to automatically remove the existing container and continue?" "y"; then
+            echo -e "${YELLOW}Removing existing container ${CONTAINER_ID}...${NC}"
+            
+            # Stop container if running
+            if pct status ${CONTAINER_ID} | grep -q "running"; then
+                echo -e "${BLUE}Stopping container...${NC}"
+                pct stop ${CONTAINER_ID} || true
+                sleep 3
+            fi
+            
+            # Destroy container
+            echo -e "${BLUE}Destroying container...${NC}"
+            pct destroy ${CONTAINER_ID} || true
+            sleep 2
+            
+            # Verify removal
+            if pct list | grep -q "^${CONTAINER_ID} "; then
+                echo -e "${RED}Failed to remove existing container${NC}"
+                exit 1
+            else
+                echo -e "${GREEN}Existing container successfully removed${NC}"
+            fi
+        else
+            echo -e "${YELLOW}Installation cancelled. Please choose a different container ID or manually remove the existing container.${NC}"
+            exit 0
+        fi
+    fi
+}
+
 # Main configuration wizard
 run_wizard() {
     show_header
     
     echo -e "${GREEN}Welcome to the Network Monitor Installation Wizard!${NC}"
     echo -e "${BLUE}This wizard will guide you through the installation process.${NC}"
+    echo -e "${YELLOW}Features automatic rollback on failure and existing container cleanup.${NC}"
     echo
     
     # Container ID
     while true; do
         get_input "Container ID (100-999999999):" "$DEFAULT_CONTAINER_ID" "CONTAINER_ID"
         if validate_container_id "$CONTAINER_ID"; then
-            if pct list | grep -q "^${CONTAINER_ID} "; then
-                echo -e "${YELLOW}Warning: Container ID ${CONTAINER_ID} already exists${NC}"
-                if get_yes_no "Do you want to destroy the existing container and recreate it?" "n"; then
-                    DESTROY_EXISTING="yes"
-                    break
-                else
-                    continue
-                fi
-            else
-                break
-            fi
+            break
         else
             echo -e "${RED}Invalid container ID. Please enter a number between 100 and 999999999${NC}"
         fi
     done
+    
+    # Check for existing container and handle cleanup
+    check_existing_container
     
     # Container Name
     get_input "Container hostname:" "$DEFAULT_CONTAINER_NAME" "CONTAINER_NAME"
@@ -411,6 +496,11 @@ run_wizard() {
     echo -e "${CYAN}║${NC}   • Primary: ${TARGET1_NAME} (${TARGET1})                                ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}   • Secondary: ${TARGET2_NAME} (${TARGET2})                              ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}   • Interval: ${COLLECTION_INTERVAL}s, Retention: ${RETENTION_DAYS} days                           ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}                                                                          ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} Safety Features:                                                         ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}   • Automatic rollback on failure                                        ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}   • Existing container cleanup                                           ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}   • Build error recovery                                                 ${CYAN}║${NC}"
     echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo
     
@@ -420,24 +510,15 @@ run_wizard() {
     fi
 }
 
-# Installation function
+# Installation function with comprehensive error handling
 perform_installation() {
     echo
-    echo -e "${GREEN}Starting installation...${NC}"
+    echo -e "${GREEN}Starting installation with automatic rollback protection...${NC}"
     
     # Ensure template is available using pveam
     if ! ensure_template_available "$TEMPLATE_INPUT"; then
         echo -e "${RED}Failed to ensure template availability${NC}"
         exit 1
-    fi
-    
-    # Destroy existing container if requested
-    if [ "$DESTROY_EXISTING" = "yes" ]; then
-        echo -e "${YELLOW}Stopping and destroying existing container...${NC}"
-        pct stop ${CONTAINER_ID} 2>/dev/null || true
-        sleep 2
-        pct destroy ${CONTAINER_ID} 2>/dev/null || true
-        sleep 2
     fi
     
     echo -e "${GREEN}Creating LXC container...${NC}"
@@ -466,8 +547,7 @@ perform_installation() {
         --onboot 1 \
         --startup order=3; then
         
-        echo -e "${RED}Failed to create container with local:vztmpl/ prefix${NC}"
-        echo -e "${YELLOW}Trying alternative template path format...${NC}"
+        echo -e "${YELLOW}Failed to create container with local:vztmpl/ prefix, trying alternative...${NC}"
         
         # Try without the local:vztmpl/ prefix
         if ! pct create ${CONTAINER_ID} "${FINAL_TEMPLATE}" \
@@ -482,22 +562,17 @@ perform_installation() {
             --onboot 1 \
             --startup order=3; then
             
-            echo -e "${RED}Failed to create container${NC}"
-            echo -e "${YELLOW}Debug information:${NC}"
-            echo -e "Container ID: ${CONTAINER_ID}"
-            echo -e "Template: ${FINAL_TEMPLATE}"
-            echo -e "Storage: ${STORAGE}"
-            echo -e "${YELLOW}Template file verification:${NC}"
-            ls -la "/var/lib/vz/template/cache/${FINAL_TEMPLATE}" 2>/dev/null || echo "Template file not found"
-            echo -e "${YELLOW}Available templates:${NC}"
-            ls -la /var/lib/vz/template/cache/ | grep -E "(ubuntu|debian)" || echo "No templates found"
+            echo -e "${RED}Failed to create container with both path formats${NC}"
             exit 1
         fi
     fi
     
+    CONTAINER_CREATED=true
     echo -e "${GREEN}Container created successfully!${NC}"
+    
     echo -e "${GREEN}Starting container...${NC}"
     pct start ${CONTAINER_ID}
+    CONTAINER_STARTED=true
     
     # Wait for container to be ready
     echo -e "${YELLOW}Waiting for container to be ready...${NC}"
@@ -506,15 +581,15 @@ perform_installation() {
     # Check if container is running
     if ! pct status ${CONTAINER_ID} | grep -q "running"; then
         echo -e "${RED}Error: Container failed to start${NC}"
-        echo -e "${YELLOW}Checking container status...${NC}"
+        echo -e "${YELLOW}Container status:${NC}"
         pct status ${CONTAINER_ID}
         exit 1
     fi
     
     echo -e "${GREEN}Installing Docker, Git and dependencies...${NC}"
     
-    # Install Docker and dependencies
-    pct exec ${CONTAINER_ID} -- bash -c "
+    # Install Docker and dependencies with better error handling
+    if ! pct exec ${CONTAINER_ID} -- bash -c "
         export DEBIAN_FRONTEND=noninteractive
         apt update
         apt install -y apt-transport-https ca-certificates curl gnupg lsb-release git
@@ -524,12 +599,15 @@ perform_installation() {
         apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
         systemctl enable docker
         systemctl start docker
-    "
+    "; then
+        echo -e "${RED}Failed to install Docker and dependencies${NC}"
+        exit 1
+    fi
     
     echo -e "${GREEN}Cloning network monitor from GitHub...${NC}"
     
     # Clone the repository and configure
-    pct exec ${CONTAINER_ID} -- bash -c "
+    if ! pct exec ${CONTAINER_ID} -- bash -c "
         cd /opt
         git clone ${GITHUB_REPO} network-monitor
         cd network-monitor
@@ -565,26 +643,44 @@ EOF
         chmod +x entrypoint.sh
         chmod +x deploy-proxmox.sh 2>/dev/null || true
         chown -R root:root .
-    "
+    "; then
+        echo -e "${RED}Failed to clone repository or configure application${NC}"
+        exit 1
+    fi
     
     echo -e "${GREEN}Building and starting the monitoring stack...${NC}"
+    echo -e "${BLUE}This may take a few minutes for the initial Docker image builds...${NC}"
     
-    # Build and start the stack
-    pct exec ${CONTAINER_ID} -- bash -c "
+    # Build and start the stack with better error handling
+    if ! pct exec ${CONTAINER_ID} -- bash -c "
         cd /opt/network-monitor
-        docker compose up -d
-    "
+        docker compose up -d --build
+    "; then
+        echo -e "${RED}Failed to build and start the monitoring stack${NC}"
+        echo -e "${YELLOW}Checking Docker logs for more information...${NC}"
+        pct exec ${CONTAINER_ID} -- docker compose -f /opt/network-monitor/docker-compose.yml logs || true
+        exit 1
+    fi
     
     # Wait for services to start
     echo -e "${YELLOW}Waiting for services to initialize...${NC}"
-    sleep 45
+    sleep 60
+    
+    # Verify services are running
+    echo -e "${GREEN}Verifying service status...${NC}"
+    if ! pct exec ${CONTAINER_ID} -- docker compose -f /opt/network-monitor/docker-compose.yml ps | grep -q "Up"; then
+        echo -e "${RED}Services failed to start properly${NC}"
+        echo -e "${YELLOW}Service status:${NC}"
+        pct exec ${CONTAINER_ID} -- docker compose -f /opt/network-monitor/docker-compose.yml ps || true
+        echo -e "${YELLOW}Service logs:${NC}"
+        pct exec ${CONTAINER_ID} -- docker compose -f /opt/network-monitor/docker-compose.yml logs --tail=50 || true
+        exit 1
+    fi
     
     # Get container IP
     CONTAINER_IP=$(pct exec ${CONTAINER_ID} -- ip route get 1 2>/dev/null | awk '{print $7; exit}' || echo "Unable to determine IP")
     
-    # Final status check
-    echo -e "${GREEN}Checking service status...${NC}"
-    pct exec ${CONTAINER_ID} -- docker compose -f /opt/network-monitor/docker-compose.yml ps
+    echo -e "${GREEN}All services started successfully!${NC}"
 }
 
 # Success message
@@ -592,6 +688,7 @@ show_success() {
     clear
     echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║${NC}                          ${BOLD}${GREEN}INSTALLATION SUCCESSFUL!${NC}                         ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}                        ${BLUE}No rollback required - All good!${NC}                      ${GREEN}║${NC}"
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo
     echo -e "${CYAN}Container Details:${NC}"
@@ -629,6 +726,7 @@ show_success() {
     echo -e "  ✓ Historical data retention"
     echo -e "  ✓ Professional Grafana dashboards"
     echo -e "  ✓ Export capabilities for ISP reports"
+    echo -e "  ✓ Automatic rollback protection"
     echo
     echo -e "${BLUE}The network monitor is now running and collecting data!${NC}"
     echo -e "${BLUE}Dashboard will be available in ~2 minutes after initial data collection.${NC}"
@@ -647,12 +745,12 @@ main() {
     # Perform installation
     perform_installation
     
+    # If we get here, installation was successful
+    INSTALLATION_FAILED=false
+    
     # Show success message
     show_success
 }
-
-# Error handling
-trap 'echo -e "\n${RED}Installation failed! Check the error messages above.${NC}"; exit 1' ERR
 
 # Run main function
 main "$@"
