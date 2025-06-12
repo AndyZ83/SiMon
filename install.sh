@@ -136,30 +136,64 @@ list_storages() {
     echo
 }
 
-# Function to get available templates with full path
+# Function to find the correct template path
+find_template_path() {
+    local template_name="$1"
+    
+    # Check common template locations
+    local template_paths=(
+        "/var/lib/vz/template/cache/${template_name}"
+        "/var/lib/vz/template/cache/$(basename ${template_name})"
+    )
+    
+    for path in "${template_paths[@]}"; do
+        if [ -f "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
+# Function to get available templates with verification
 get_available_templates() {
     local templates=()
     
-    # Check for downloaded templates with full path
-    if command -v pveam >/dev/null 2>&1; then
-        # Get list of downloaded templates with full path
-        local downloaded=$(pveam list local 2>/dev/null | grep -E "ubuntu-22|ubuntu-20|debian-11|debian-12" | awk '{print $2}')
-        if [ -n "$downloaded" ]; then
+    echo -e "${BLUE}Scanning for available templates...${NC}"
+    
+    # Check template cache directory
+    if [ -d "/var/lib/vz/template/cache" ]; then
+        while IFS= read -r -d '' template_file; do
+            if [ -f "$template_file" ]; then
+                template_name=$(basename "$template_file")
+                if [[ "$template_name" == *.tar.* ]]; then
+                    templates+=("$template_name")
+                fi
+            fi
+        done < <(find /var/lib/vz/template/cache -name "*.tar.*" -print0 2>/dev/null)
+    fi
+    
+    # If no templates found, try to list via pveam
+    if [ ${#templates[@]} -eq 0 ]; then
+        echo -e "${YELLOW}No templates found in cache, checking pveam...${NC}"
+        local pveam_templates=$(pveam list local 2>/dev/null | grep -E "ubuntu|debian" | awk '{print $2}' | sed 's/.*://')
+        if [ -n "$pveam_templates" ]; then
             while IFS= read -r template; do
                 if [ -n "$template" ]; then
                     templates+=("$template")
                 fi
-            done <<< "$downloaded"
+            done <<< "$pveam_templates"
         fi
     fi
     
-    # If no templates found, add common ones
+    # If still no templates, provide common ones for download
     if [ ${#templates[@]} -eq 0 ]; then
         templates+=(
-            "local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
-            "local:vztmpl/ubuntu-20.04-standard_20.04-1_amd64.tar.zst"
-            "local:vztmpl/debian-11-standard_11.7-1_amd64.tar.zst"
-            "local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst"
+            "ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+            "ubuntu-20.04-standard_20.04-1_amd64.tar.zst"
+            "debian-11-standard_11.7-1_amd64.tar.zst"
+            "debian-12-standard_12.2-1_amd64.tar.zst"
         )
     fi
     
@@ -171,44 +205,29 @@ list_templates() {
     echo -e "${CYAN}Available templates:${NC}"
     get_available_templates | while read -r template; do
         if [ -n "$template" ]; then
-            # Extract just the filename for display
-            template_name=$(basename "$template")
-            echo -e "  • ${template_name}"
+            # Check if template file actually exists
+            if find_template_path "$template" >/dev/null 2>&1; then
+                echo -e "  • ${GREEN}${template}${NC} (available)"
+            else
+                echo -e "  • ${YELLOW}${template}${NC} (needs download)"
+            fi
         fi
     done
     echo
 }
 
-# Function to find and download template
+# Function to ensure template is available and return correct path
 ensure_template_available() {
     local requested_template="$1"
     
-    echo -e "${BLUE}Checking template availability...${NC}"
+    echo -e "${BLUE}Ensuring template availability: ${requested_template}${NC}"
     
-    # First, try to find the template with full path
-    local full_template_path=""
-    
-    # Check if it's already a full path
-    if [[ "$requested_template" == *":"* ]]; then
-        full_template_path="$requested_template"
-    else
-        # Try to find the template in local storage
-        local found_template=$(pveam list local 2>/dev/null | grep "$requested_template" | awk '{print $2}' | head -1)
-        if [ -n "$found_template" ]; then
-            full_template_path="$found_template"
-        else
-            # Construct the path manually
-            full_template_path="local:vztmpl/$requested_template"
-        fi
-    fi
-    
-    echo -e "${BLUE}Using template path: ${full_template_path}${NC}"
-    
-    # Check if template file exists
-    local template_file=$(echo "$full_template_path" | sed 's/.*://')
-    if [ -f "/var/lib/vz/template/cache/$template_file" ] || [ -f "/var/lib/vz/template/cache/$(basename $template_file)" ]; then
-        echo -e "${GREEN}Template file found locally${NC}"
-        TEMPLATE="$full_template_path"
+    # First, try to find the template file
+    local template_path=$(find_template_path "$requested_template")
+    if [ -n "$template_path" ]; then
+        echo -e "${GREEN}Template found at: ${template_path}${NC}"
+        # Return just the filename for pct create
+        FINAL_TEMPLATE=$(basename "$template_path")
         return 0
     fi
     
@@ -218,39 +237,44 @@ ensure_template_available() {
     echo -e "${BLUE}Updating template repository...${NC}"
     pveam update || true
     
-    # Extract just the template name for download
-    local template_name=$(basename "$requested_template")
-    
     # Try to download the template
-    echo -e "${BLUE}Downloading template: ${template_name}${NC}"
-    if pveam download local "$template_name"; then
+    echo -e "${BLUE}Downloading template: ${requested_template}${NC}"
+    if pveam download local "$requested_template"; then
         echo -e "${GREEN}Template downloaded successfully${NC}"
-        TEMPLATE="local:vztmpl/$template_name"
-        return 0
-    else
-        echo -e "${YELLOW}Failed to download specific template, trying alternatives...${NC}"
-        
-        # Try alternative templates
-        local alternatives=(
-            "ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
-            "ubuntu-20.04-standard_20.04-1_amd64.tar.zst"
-            "debian-11-standard_11.7-1_amd64.tar.zst"
-            "debian-12-standard_12.2-1_amd64.tar.zst"
-        )
-        
-        for alt_template in "${alternatives[@]}"; do
-            echo -e "${BLUE}Trying alternative: ${alt_template}${NC}"
-            if pveam download local "$alt_template" 2>/dev/null; then
-                echo -e "${GREEN}Downloaded alternative template: ${alt_template}${NC}"
-                TEMPLATE="local:vztmpl/$alt_template"
+        # Verify the download
+        local downloaded_path=$(find_template_path "$requested_template")
+        if [ -n "$downloaded_path" ]; then
+            FINAL_TEMPLATE=$(basename "$downloaded_path")
+            return 0
+        fi
+    fi
+    
+    echo -e "${YELLOW}Failed to download specific template, trying alternatives...${NC}"
+    
+    # Try alternative templates
+    local alternatives=(
+        "ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+        "ubuntu-20.04-standard_20.04-1_amd64.tar.zst"
+        "debian-11-standard_11.7-1_amd64.tar.zst"
+        "debian-12-standard_12.2-1_amd64.tar.zst"
+    )
+    
+    for alt_template in "${alternatives[@]}"; do
+        echo -e "${BLUE}Trying alternative: ${alt_template}${NC}"
+        if pveam download local "$alt_template" 2>/dev/null; then
+            echo -e "${GREEN}Downloaded alternative template: ${alt_template}${NC}"
+            local alt_path=$(find_template_path "$alt_template")
+            if [ -n "$alt_path" ]; then
+                FINAL_TEMPLATE=$(basename "$alt_path")
                 return 0
             fi
-        done
-        
-        echo -e "${RED}Failed to download any suitable template${NC}"
-        echo -e "${YELLOW}Please manually download a template using: pveam download local <template-name>${NC}"
-        return 1
-    fi
+        fi
+    done
+    
+    echo -e "${RED}Failed to download any suitable template${NC}"
+    echo -e "${YELLOW}Available templates in repository:${NC}"
+    pveam available | grep -E "ubuntu|debian" | head -10
+    return 1
 }
 
 # Function to list network bridges
@@ -398,6 +422,10 @@ perform_installation() {
     # Ensure template is available and get correct path
     if ! ensure_template_available "$TEMPLATE_INPUT"; then
         echo -e "${RED}Failed to ensure template availability${NC}"
+        echo -e "${YELLOW}Please manually download a template using:${NC}"
+        echo -e "${CYAN}pveam update${NC}"
+        echo -e "${CYAN}pveam available | grep ubuntu${NC}"
+        echo -e "${CYAN}pveam download local <template-name>${NC}"
         exit 1
     fi
     
@@ -412,11 +440,11 @@ perform_installation() {
     
     echo -e "${GREEN}Creating LXC container...${NC}"
     echo -e "${BLUE}Using storage: ${STORAGE}${NC}"
-    echo -e "${BLUE}Using template: ${TEMPLATE}${NC}"
+    echo -e "${BLUE}Using template: ${FINAL_TEMPLATE}${NC}"
     echo -e "${BLUE}Container specs: ${MEMORY}MB RAM, ${CORES} cores, ${DISK_SIZE}GB disk${NC}"
     
-    # Create the container with correct template path
-    if ! pct create ${CONTAINER_ID} "${TEMPLATE}" \
+    # Create the container using just the template filename
+    if ! pct create ${CONTAINER_ID} "${FINAL_TEMPLATE}" \
         --hostname ${CONTAINER_NAME} \
         --memory ${MEMORY} \
         --cores ${CORES} \
@@ -430,10 +458,10 @@ perform_installation() {
         echo -e "${RED}Failed to create container${NC}"
         echo -e "${YELLOW}Debug information:${NC}"
         echo -e "Container ID: ${CONTAINER_ID}"
-        echo -e "Template: ${TEMPLATE}"
+        echo -e "Template: ${FINAL_TEMPLATE}"
         echo -e "Storage: ${STORAGE}"
-        echo -e "${YELLOW}Available templates:${NC}"
-        pveam list local 2>/dev/null || echo "No templates found"
+        echo -e "${YELLOW}Template file check:${NC}"
+        ls -la /var/lib/vz/template/cache/ | grep -E "(ubuntu|debian)" || echo "No templates found"
         exit 1
     fi
     
@@ -541,7 +569,7 @@ show_success() {
     echo -e "  • Container Name: ${BOLD}${CONTAINER_NAME}${NC}"
     echo -e "  • IP Address: ${BOLD}${CONTAINER_IP}${NC}"
     echo -e "  • Root Password: ${BOLD}${PASSWORD}${NC}"
-    echo -e "  • Template Used: ${BOLD}${TEMPLATE}${NC}"
+    echo -e "  • Template Used: ${BOLD}${FINAL_TEMPLATE}${NC}"
     echo
     echo -e "${CYAN}Access URLs:${NC}"
     echo -e "  • ${BOLD}Grafana Dashboard: ${GREEN}http://${CONTAINER_IP}:3000${NC}"
