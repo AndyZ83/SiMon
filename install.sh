@@ -24,7 +24,7 @@ DEFAULT_CONTAINER_NAME="network-monitor"
 DEFAULT_TEMPLATE="ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
 DEFAULT_STORAGE="local-lvm"
 DEFAULT_MEMORY="2048"
-DEFAULT_DISK_SIZE="10G"
+DEFAULT_DISK_SIZE="10"
 DEFAULT_CORES="2"
 DEFAULT_PASSWORD="networkmonitor123"
 DEFAULT_NET_BRIDGE="vmbr0"
@@ -111,24 +111,54 @@ validate_container_id() {
     fi
 }
 
-# Function to list available storages
+# Function to validate disk size
+validate_disk_size() {
+    local size="$1"
+    if [[ "$size" =~ ^[0-9]+$ ]] && [ "$size" -ge 8 ] && [ "$size" -le 1000 ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to list available storages with details
 list_storages() {
     echo -e "${CYAN}Available storage locations:${NC}"
-    pvesm status | grep -E "(local-lvm|local|dir|zfs)" | awk '{print "  • " $1 " (" $2 ")"}'
+    pvesm status | grep -E "(local-lvm|local|dir|zfs|ceph)" | while read -r line; do
+        storage_name=$(echo "$line" | awk '{print $1}')
+        storage_type=$(echo "$line" | awk '{print $2}')
+        storage_status=$(echo "$line" | awk '{print $3}')
+        if [ "$storage_status" = "active" ]; then
+            echo -e "  • ${GREEN}${storage_name}${NC} (${storage_type})"
+        else
+            echo -e "  • ${YELLOW}${storage_name}${NC} (${storage_type}) - ${storage_status}"
+        fi
+    done
     echo
 }
 
 # Function to list available templates
 list_templates() {
-    echo -e "${CYAN}Available templates:${NC}"
-    pveam available | grep -E "ubuntu-22|ubuntu-20|debian-11|debian-12" | head -5 | awk '{print "  • " $2}'
+    echo -e "${CYAN}Available templates (showing Ubuntu/Debian):${NC}"
+    if command -v pveam >/dev/null 2>&1; then
+        pveam available | grep -E "ubuntu-22|ubuntu-20|debian-11|debian-12" | head -5 | awk '{print "  • " $2}' 2>/dev/null || echo "  • ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+    else
+        echo "  • ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+        echo "  • ubuntu-20.04-standard_20.04-1_amd64.tar.zst"
+        echo "  • debian-11-standard_11.7-1_amd64.tar.zst"
+    fi
     echo
 }
 
 # Function to list network bridges
 list_bridges() {
     echo -e "${CYAN}Available network bridges:${NC}"
-    ip link show | grep -E "^[0-9]+: vmbr" | awk -F': ' '{print "  • " $2}' | awk '{print $1}'
+    if ip link show 2>/dev/null | grep -E "^[0-9]+: vmbr" >/dev/null; then
+        ip link show | grep -E "^[0-9]+: vmbr" | awk -F': ' '{print "  • " $2}' | awk '{print $1}'
+    else
+        echo "  • vmbr0 (default)"
+        echo "  • vmbr1"
+    fi
     echo
 }
 
@@ -200,7 +230,16 @@ run_wizard() {
     echo -e "${CYAN}Container Resources Configuration:${NC}"
     get_input "Memory (MB):" "$DEFAULT_MEMORY" "MEMORY"
     get_input "CPU cores:" "$DEFAULT_CORES" "CORES"
-    get_input "Disk size (e.g., 10G, 20G):" "$DEFAULT_DISK_SIZE" "DISK_SIZE"
+    
+    # Disk size with validation
+    while true; do
+        get_input "Disk size in GB (minimum 8GB):" "$DEFAULT_DISK_SIZE" "DISK_SIZE"
+        if validate_disk_size "$DISK_SIZE"; then
+            break
+        else
+            echo -e "${RED}Invalid disk size. Please enter a number between 8 and 1000 (GB)${NC}"
+        fi
+    done
     
     # Network
     echo
@@ -231,7 +270,7 @@ run_wizard() {
     echo -e "${CYAN}║${NC}   • Name: ${CONTAINER_NAME}                                               ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}   • Storage: ${STORAGE}                                                   ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}   • Template: ${TEMPLATE}                                    ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC}   • Resources: ${MEMORY}MB RAM, ${CORES} CPU cores, ${DISK_SIZE} disk                    ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}   • Resources: ${MEMORY}MB RAM, ${CORES} CPU cores, ${DISK_SIZE}GB disk                    ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}   • Network: ${NET_BRIDGE}                                                     ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}                                                                          ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC} Monitoring Configuration:                                                ${CYAN}║${NC}"
@@ -262,8 +301,9 @@ perform_installation() {
     fi
     
     echo -e "${GREEN}Creating LXC container...${NC}"
+    echo -e "${BLUE}Using storage format: ${STORAGE}:${DISK_SIZE}${NC}"
     
-    # Create the container
+    # Create the container with correct storage format
     pct create ${CONTAINER_ID} ${TEMPLATE} \
         --hostname ${CONTAINER_NAME} \
         --memory ${MEMORY} \
@@ -286,6 +326,8 @@ perform_installation() {
     # Check if container is running
     if ! pct status ${CONTAINER_ID} | grep -q "running"; then
         echo -e "${RED}Error: Container failed to start${NC}"
+        echo -e "${YELLOW}Checking container status...${NC}"
+        pct status ${CONTAINER_ID}
         exit 1
     fi
     
