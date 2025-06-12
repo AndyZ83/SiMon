@@ -1,217 +1,202 @@
-# Network Performance Monitor for Proxmox
+# Network Performance Monitor für Proxmox
 
-A comprehensive containerized solution for monitoring internet connectivity and performance, designed for ISP reporting and network troubleshooting. This solution provides professional-grade monitoring with Grafana dashboards and InfluxDB data storage.
+Eine umfassende containerisierte Lösung zur Überwachung der Internetverbindung und -leistung, entwickelt für ISP-Reporting und Netzwerk-Troubleshooting. Diese Lösung bietet professionelle Überwachung mit Grafana-Dashboards und InfluxDB-Datenspeicherung.
 
-## 🚀 Quick Deployment on Proxmox
+## 🚀 Schnelle Installation auf Proxmox
 
-### One-Line Installation
-
-Replace `YOUR_USERNAME` and `YOUR_REPO` with your actual GitHub repository details:
+### Ein-Zeilen-Installation mit interaktivem Wizard
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/AndyZ83/SiMon/main/install.sh)"
 ```
 
-### What Gets Installed
+### Was wird installiert
 
-- **LXC Container** on Proxmox with Ubuntu 22.04
-- **Docker & Docker Compose** for containerization
-- **InfluxDB 2.7** for time-series data storage
-- **Grafana 10.2** with pre-configured dashboards
-- **Python Network Collector** for continuous monitoring
-- **Professional ISP Reporting Dashboards**
+- **LXC Container** auf Proxmox mit Ubuntu 22.04
+- **Docker & Docker Compose** für Containerisierung
+- **InfluxDB 2.7** für Zeitreihen-Datenspeicherung
+- **Grafana 10.2** mit vorkonfigurierten Dashboards
+- **Python Network Collector** für kontinuierliche Überwachung
+- **Professionelle ISP-Reporting-Dashboards**
 
 ## 📊 Features
 
-### Real-time Network Monitoring
-- **Continuous Ping Tests**: Latency measurement and packet loss detection
-- **Speed Testing**: Automated download/upload speed measurements
-- **Multi-Target Monitoring**: Monitor up to 2 configurable targets simultaneously
-- **Historical Data**: Configurable data retention (default: 30 days)
+### Echtzeit-Netzwerküberwachung
+- **Kontinuierliche Ping-Tests**: Latenz-Messung und Paketverlust-Erkennung
+- **Geschwindigkeitstests**: Automatisierte Download-/Upload-Geschwindigkeitsmessungen
+- **Multi-Target-Überwachung**: Überwachung von bis zu 2 konfigurierbaren Zielen gleichzeitig
+- **Historische Daten**: Konfigurierbare Datenaufbewahrung (Standard: 30 Tage)
 
-### Professional Dashboards
-- **ISP Reporting Ready**: Professional visualizations for provider communications
-- **Real-time Status**: Live connection status indicators
-- **Trend Analysis**: Historical performance trends
-- **Export Capabilities**: CSV export for technical support tickets
+### Professionelle Dashboards
+- **ISP-Reporting bereit**: Professionelle Visualisierungen für Provider-Kommunikation
+- **Echtzeit-Status**: Live-Verbindungsstatusanzeigen
+- **Trendanalyse**: Historische Leistungstrends
+- **Export-Funktionen**: CSV-Export für technische Support-Tickets
 
-### Easy Configuration
-- **Environment Variables**: Simple `.env` file configuration
-- **Flexible Targets**: DNS servers, gateways, or any IP/hostname
-- **Adjustable Intervals**: Customizable monitoring frequency
-- **Data Retention**: Configurable storage duration
+### Einfache Konfiguration
+- **Umgebungsvariablen**: Einfache `.env`-Dateikonfiguration
+- **Flexible Ziele**: DNS-Server, Gateways oder beliebige IP/Hostnamen
+- **Anpassbare Intervalle**: Konfigurierbare Überwachungsfrequenz
+- **Datenaufbewahrung**: Konfigurierbare Speicherdauer
 
-## 🔧 Configuration
+## 🧙‍♂️ Interaktiver Installation Wizard
 
-### Default Settings
+Der neue Installation Wizard führt Sie durch alle Konfigurationsschritte:
+
+### Konfigurationsoptionen:
+- **Container-ID und Name**
+- **Storage-Auswahl** (automatische Erkennung verfügbarer Storages)
+- **Template-Auswahl** (Ubuntu/Debian Optionen)
+- **Ressourcen-Konfiguration** (RAM, CPU, Festplatte)
+- **Netzwerk-Bridge-Auswahl**
+- **Sicherheitseinstellungen** (Root-Passwort)
+- **Überwachungsziele** (2 konfigurierbare Targets)
+- **Monitoring-Parameter** (Intervall, Datenaufbewahrung)
+
+### Wizard-Features:
+- **Validierung aller Eingaben**
+- **Automatische Erkennung** verfügbarer Proxmox-Ressourcen
+- **Übersichtliche Zusammenfassung** vor Installation
+- **Farbige Benutzeroberfläche** für bessere Lesbarkeit
+- **Fehlerbehandlung** mit hilfreichen Meldungen
+
+## 🔧 Konfiguration
+
+### Standard-Einstellungen
 ```bash
-# Monitoring Targets
+# Überwachungsziele
 TARGET1=8.8.8.8
 TARGET1_NAME=Google DNS
 TARGET2=1.1.1.1
 TARGET2_NAME=Cloudflare DNS
 
-# Collection Settings
-COLLECTION_INTERVAL=30  # seconds
-RETENTION_DAYS=30       # days
+# Sammlungseinstellungen
+COLLECTION_INTERVAL=30  # Sekunden
+RETENTION_DAYS=30       # Tage
 
-# Credentials (change these!)
+# Anmeldedaten (ändern Sie diese!)
 INFLUXDB_PASSWORD=networkmonitor123
 GRAFANA_PASSWORD=networkmonitor123
 ```
 
-### Customizing Monitoring Targets
+### Anpassung der Überwachungsziele
 
-1. **Access the container:**
+1. **Container betreten:**
    ```bash
    pct enter 200
    cd /opt/network-monitor
    ```
 
-2. **Edit configuration:**
+2. **Konfiguration bearbeiten:**
    ```bash
    nano .env
    ```
 
-3. **Common monitoring targets:**
+3. **Häufige Überwachungsziele:**
    ```bash
    # ISP Gateway
    TARGET1=192.168.1.1
    TARGET1_NAME=ISP Gateway
    
-   # Critical Service
-   TARGET2=your-server.com
-   TARGET2_NAME=Production Server
+   # Kritischer Service
+   TARGET2=ihr-server.com
+   TARGET2_NAME=Produktionsserver
    ```
 
-4. **Restart services:**
+4. **Services neu starten:**
    ```bash
    docker compose restart
    ```
 
-## 📈 Dashboard Access
+## 📈 Dashboard-Zugriff
 
-After installation, access your monitoring dashboard:
+Nach der Installation greifen Sie auf Ihr Überwachungs-Dashboard zu:
 
 - **Grafana**: `http://[CONTAINER-IP]:3000`
-  - Username: `admin`
-  - Password: `networkmonitor123`
+  - Benutzername: `admin`
+  - Passwort: `networkmonitor123`
 
-### Dashboard Features
+### Dashboard-Features
 
-1. **Connection Status Panel**: Real-time online/offline status
-2. **Latency Monitoring**: RTT trends with min/max/avg values
-3. **Packet Loss Tracking**: Percentage loss over time
-4. **Speed Test Results**: Download/upload measurements
-5. **Target Availability**: Uptime statistics per target
-6. **Historical Analysis**: Configurable time ranges
+1. **Verbindungsstatus-Panel**: Echtzeit Online/Offline-Status
+2. **Latenz-Überwachung**: RTT-Trends mit Min/Max/Durchschnittswerten
+3. **Paketverlust-Tracking**: Prozentualer Verlust über Zeit
+4. **Geschwindigkeitstest-Ergebnisse**: Download-/Upload-Messungen
+5. **Ziel-Verfügbarkeit**: Uptime-Statistiken pro Ziel
+6. **Historische Analyse**: Konfigurierbare Zeitbereiche
 
-## 🏢 ISP Reporting
+## 🏢 ISP-Reporting
 
-This solution is specifically designed for professional ISP communications:
+Diese Lösung ist speziell für professionelle ISP-Kommunikation entwickelt:
 
-### Data Export
-- **CSV Export**: Export metrics for email attachments
-- **Screenshot Capability**: Professional dashboard screenshots
-- **Time Range Selection**: Focus on problem periods
-- **Detailed Metrics**: Timestamps, latency, packet loss, speeds
+### Datenexport
+- **CSV-Export**: Metriken für E-Mail-Anhänge exportieren
+- **Screenshot-Funktion**: Professionelle Dashboard-Screenshots
+- **Zeitbereich-Auswahl**: Fokus auf Problemzeiträume
+- **Detaillierte Metriken**: Zeitstempel, Latenz, Paketverlust, Geschwindigkeiten
 
-### Professional Visualizations
-- **Clear Trend Lines**: Easy to identify performance degradation
-- **Color-coded Status**: Green/yellow/red status indicators
-- **Statistical Summaries**: Average, min, max values
-- **Availability Reports**: Uptime percentages
+### Professionelle Visualisierungen
+- **Klare Trendlinien**: Einfache Identifikation von Leistungsverschlechterungen
+- **Farbkodierte Status**: Grün/Gelb/Rot-Statusanzeigen
+- **Statistische Zusammenfassungen**: Durchschnitts-, Min-, Max-Werte
+- **Verfügbarkeitsberichte**: Uptime-Prozentsätze
 
-## 🔧 Advanced Configuration
+## 🛠️ Fehlerbehebung
 
-### Adding More Monitoring Targets
-
-Modify `collector.py` to add additional targets:
-
-```python
-# Add more targets to monitor
-targets = [
-    {'ip': '8.8.8.8', 'name': 'Google DNS'},
-    {'ip': '1.1.1.1', 'name': 'Cloudflare DNS'},
-    {'ip': 'your.isp.gateway', 'name': 'ISP Gateway'},
-    {'ip': 'critical-server.com', 'name': 'Critical Service'}
-]
-```
-
-### Custom Grafana Dashboards
-
-1. **Access Grafana**: `http://[CONTAINER-IP]:3000`
-2. **Import Dashboards**: Use Grafana's import functionality
-3. **Customize Panels**: Modify existing visualizations
-4. **Create Alerts**: Set up email notifications for outages
-
-### Data Backup
-
+### Container-Probleme
 ```bash
-# Backup InfluxDB data
-pct exec 200 -- docker exec network-monitor-influxdb influx backup /tmp/backup
-pct exec 200 -- cp -r /var/lib/docker/volumes/network-monitor_influxdb-data /backup/
-
-# Backup Grafana dashboards
-pct exec 200 -- cp -r /var/lib/docker/volumes/network-monitor_grafana-data /backup/
-```
-
-## 🛠️ Troubleshooting
-
-### Container Issues
-```bash
-# Check container status
+# Container-Status prüfen
 pct list
 
-# View container logs
+# Container-Logs anzeigen
 pct enter 200
 docker compose logs -f
 ```
 
-### Network Connectivity
+### Netzwerkverbindung
 ```bash
-# Test from container
+# Test vom Container aus
 pct exec 200 -- ping -c 4 8.8.8.8
 
-# Check service status
+# Service-Status prüfen
 pct exec 200 -- docker compose ps
 ```
 
-### Dashboard Not Loading
+### Dashboard lädt nicht
 ```bash
-# Restart Grafana
+# Grafana neu starten
 pct exec 200 -- docker compose restart grafana
 
-# Check InfluxDB connection
+# InfluxDB-Verbindung prüfen
 pct exec 200 -- docker compose logs influxdb
 ```
 
-### Data Not Appearing
+### Keine Daten sichtbar
 ```bash
-# Check collector logs
+# Collector-Logs prüfen
 pct exec 200 -- docker compose logs network-collector
 
-# Verify InfluxDB data
+# InfluxDB-Daten verifizieren
 pct exec 200 -- docker exec -it network-monitor-influxdb influx query 'from(bucket:"network_metrics") |> range(start:-1h)'
 ```
 
-## 📋 System Requirements
+## 📋 Systemanforderungen
 
 ### Proxmox Host
-- **Proxmox VE**: 6.0 or later
-- **Available Container ID**: Default 200 (configurable)
-- **Storage**: 10GB minimum for container
-- **Network**: Internet connectivity for monitoring targets
+- **Proxmox VE**: 6.0 oder später
+- **Verfügbare Container-ID**: Standard 200 (konfigurierbar)
+- **Storage**: Mindestens 10GB für Container
+- **Netzwerk**: Internetverbindung für Überwachungsziele
 
-### Container Resources
-- **Memory**: 2GB RAM
-- **CPU**: 2 cores
-- **Storage**: 10GB disk space
-- **Network**: Bridge network access
+### Container-Ressourcen
+- **Arbeitsspeicher**: 2GB RAM
+- **CPU**: 2 Kerne
+- **Storage**: 10GB Festplattenspeicher
+- **Netzwerk**: Bridge-Netzwerkzugriff
 
-## 🔄 Updates and Maintenance
+## 🔄 Updates und Wartung
 
-### Updating from GitHub
+### Update von GitHub
 ```bash
 pct enter 200
 cd /opt/network-monitor
@@ -220,31 +205,31 @@ docker compose down
 docker compose up -d --build
 ```
 
-### Regular Maintenance
-- **Monitor disk usage**: InfluxDB data grows over time
-- **Review retention settings**: Adjust `RETENTION_DAYS` as needed
-- **Update containers**: Regular security updates
-- **Backup configuration**: Save custom settings
+### Regelmäßige Wartung
+- **Festplattennutzung überwachen**: InfluxDB-Daten wachsen über Zeit
+- **Aufbewahrungseinstellungen überprüfen**: `RETENTION_DAYS` nach Bedarf anpassen
+- **Container aktualisieren**: Regelmäßige Sicherheitsupdates
+- **Konfiguration sichern**: Benutzerdefinierte Einstellungen speichern
 
-## 📝 License
+## 📝 Lizenz
 
-MIT License - see LICENSE file for details
+MIT License - siehe LICENSE-Datei für Details
 
-## 🤝 Contributing
+## 🤝 Beitragen
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+1. Repository forken
+2. Feature-Branch erstellen
+3. Änderungen vornehmen
+4. Pull Request einreichen
 
 ## 📞 Support
 
-For issues and questions:
-1. Check the troubleshooting section
-2. Review container logs
-3. Verify network connectivity
-4. Check GitHub issues for similar problems
+Für Probleme und Fragen:
+1. Fehlerbehebungsabschnitt prüfen
+2. Container-Logs überprüfen
+3. Netzwerkverbindung verifizieren
+4. GitHub Issues für ähnliche Probleme prüfen
 
 ---
 
-**Perfect for ISP Reporting**: This solution provides professional-grade network monitoring with the data and visualizations needed to make qualified claims to internet service providers about connection quality and performance issues.
+**Perfekt für ISP-Reporting**: Diese Lösung bietet professionelle Netzwerküberwachung mit den Daten und Visualisierungen, die für qualifizierte Beschwerden bei Internetdienstanbietern über Verbindungsqualität und Leistungsprobleme benötigt werden.
