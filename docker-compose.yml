@@ -76,7 +76,7 @@ services:
       - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-network-monitor-token-change-me}
       - INFLUXDB_ORG=${INFLUXDB_ORG:-NetworkMonitoring}
       - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-network_metrics}
-    command: python3 manual-test-server.py
+    command: ["python3", "manual-test-server.py"]
     networks:
       - monitoring
     depends_on:
